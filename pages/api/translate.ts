@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
-import type { AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosError as AxiosErrorType, AxiosResponse as AxiosResponseType } from 'axios';
 import Cors from 'cors';
 import { CorsRequest } from 'cors';
 import rateLimit from 'express-rate-limit';
-import type { Request } from 'express';
 
 interface TranslationRequest {
   text: string | string[];
@@ -34,7 +32,7 @@ const cors = Cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
   max: 100 // 每个IP限制100次请求
-}) as any;
+});
 
 const runMiddleware = (req: NextApiRequest, res: NextApiResponse, fn: (req: CorsRequest, res: NextApiResponse, cb: (result: unknown) => void) => void): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -116,8 +114,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }))
     });
   } catch (error: unknown) {
-    const errorDetails = error instanceof AxiosError 
-      ? `Status: ${(error as AxiosError).response?.status}, Data: ${JSON.stringify((error as AxiosError).response?.data)}, Message: ${(error as AxiosError).message}`
+    const errorDetails = error instanceof AxiosErrorType 
+      ? `Status: ${(error as AxiosErrorType).response?.status}, Data: ${JSON.stringify((error as AxiosErrorType).response?.data)}, Message: ${(error as AxiosErrorType).message}`
       : error instanceof Error 
         ? error.stack || error.message
         : String(error);
