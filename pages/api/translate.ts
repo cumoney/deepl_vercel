@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import axios, { AxiosError as AxiosErrorType, AxiosResponse as AxiosResponseType } from 'axios';
+import axios from 'axios';
+import type { AxiosError, AxiosResponse } from 'axios';
 import Cors from 'cors';
 import { CorsRequest } from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -92,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(400).json({ error: validation.error || '无效的请求参数' });
     }
 
-    const response: AxiosResponseType<TranslationResponse> = await axios.post(
+    const response: AxiosResponse<TranslationResponse> = await axios.post(
       DEEPL_API_URL,
       {
         text: Array.isArray(text) ? text : [text],
@@ -114,8 +115,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }))
     });
   } catch (error: unknown) {
-    const errorDetails = error instanceof AxiosErrorType 
-      ? `Status: ${(error as AxiosErrorType).response?.status}, Data: ${JSON.stringify((error as AxiosErrorType).response?.data)}, Message: ${(error as AxiosErrorType).message}`
+    const errorDetails = error instanceof AxiosError 
+      ? `Status: ${error.response?.status}, Data: ${JSON.stringify(error.response?.data)}, Message: ${error.message}`
       : error instanceof Error 
         ? error.stack || error.message
         : String(error);
@@ -125,7 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const errorResponse: ErrorResponse = {
       error: 'Translation failed',
       details: {
-        message: error instanceof AxiosErrorType ? (error as AxiosErrorType).response?.data?.message || error.message : (error instanceof Error ? error.message : String(error))
+        message: error instanceof AxiosError ? error.response?.data?.message || error.message : (error instanceof Error ? error.message : String(error))
       }
     };
     
