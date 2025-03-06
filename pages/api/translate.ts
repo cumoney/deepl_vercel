@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import Cors from 'cors';
-import { CorsRequest } from 'cors';
+import Cors, { CorsRequest } from 'cors';
 import rateLimit from 'express-rate-limit';
-import type { Request } from 'express';
 
 interface TranslationRequest {
   text: string | string[];
@@ -93,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(400).json({ error: validation.error || '无效的请求参数' });
     }
 
-    const response = await axios.post(
+    const response = await axios.post<TranslationResponse>(
       DEEPL_API_URL,
       {
         text: Array.isArray(text) ? text : [text],
@@ -115,8 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }))
     });
   } catch (error: unknown) {
-    const errorDetails = error instanceof Error && 'isAxiosError' in error 
-      ? `Status: ${(error as any).response?.status}, Data: ${JSON.stringify((error as any).response?.data)}, Message: ${(error as Error).message}`
+    const errorDetails = error && typeof error === 'object' && 'isAxiosError' in error
+      ? `Status: ${(error as any).response?.status}, Data: ${JSON.stringify((error as any).response?.data)}, Message: ${(error as any).message}`
       : error instanceof Error 
         ? error.stack || error.message
         : String(error);
@@ -126,7 +124,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const errorResponse: ErrorResponse = {
       error: 'Translation failed',
       details: {
-        message: error instanceof Error && 'isAxiosError' in error ? (error as any).response?.data?.message || error.message : (error instanceof Error ? error.message : String(error))
+        message: typeof error === 'object' && error !== null && 'isAxiosError' in error && (error as any).isAxiosError
+          ? (error as any).response?.data?.message || (error as any).message
+          : (error instanceof Error ? error.message : String(error))
       }
     };
     
