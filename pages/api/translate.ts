@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import axios from 'axios';
-import Cors, { CorsRequest } from 'cors';
-import rateLimit from 'express-rate-limit';
+import axios, { AxiosError as AxiosErrorType, AxiosResponse as AxiosResponseType } from 'axios';
+import Cors from 'cors';
+import { CorsRequest } from 'cors';
 
 interface TranslationRequest {
   text: string | string[];
@@ -28,10 +28,7 @@ const cors = Cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 });
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100 // 每个IP限制100次请求
-}) as any;
+
 
 const runMiddleware = (req: NextApiRequest, res: NextApiResponse, fn: (req: CorsRequest, res: NextApiResponse, cb: (result: unknown) => void) => void): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -67,12 +64,6 @@ const validateRequest = (req: NextApiRequest): { isValid: boolean; error?: strin
 export default async function handler(req: NextApiRequest, res: NextApiResponse<TranslationResponse | ErrorResponse>) {
   try {
     await runMiddleware(req, res, cors);
-    await new Promise((resolve, reject) => {
-      limiter(req, res, (result: Error | undefined) => {
-        if (result instanceof Error) reject(result);
-        resolve(result);
-      });
-    });
     if (req.method !== 'POST') {
       return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -91,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(400).json({ error: validation.error || '无效的请求参数' });
     }
 
-    const response = await axios.post<TranslationResponse>(
+    const response: AxiosResponseType<TranslationResponse> = await axios.post(
       DEEPL_API_URL,
       {
         text: Array.isArray(text) ? text : [text],
@@ -113,8 +104,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }))
     });
   } catch (error: unknown) {
-    const errorDetails = error && typeof error === 'object' && 'isAxiosError' in error
-      ? `Status: ${(error as any).response?.status}, Data: ${JSON.stringify((error as any).response?.data)}, Message: ${(error as any).message}`
+    const errorDetails = error instanceof AxiosErrorType 
+      ? `Status: ${(error as AxiosErrorType).response?.status}, Data: ${JSON.stringify((error as AxiosErrorType).response?.data)}, Message: ${(error as AxiosErrorType).message}`
       : error instanceof Error 
         ? error.stack || error.message
         : String(error);
@@ -124,9 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const errorResponse: ErrorResponse = {
       error: 'Translation failed',
       details: {
-        message: typeof error === 'object' && error !== null && 'isAxiosError' in error && (error as any).isAxiosError
-          ? (error as any).response?.data?.message || (error as any).message
-          : (error instanceof Error ? error.message : String(error))
+        message: error instanceof AxiosErrorType ? (error as AxiosErrorType).response?.data?.message || error.message : (error instanceof Error ? error.message : String(error))
       }
     };
     
